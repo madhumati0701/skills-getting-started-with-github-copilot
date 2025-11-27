@@ -74,6 +74,12 @@ activities = {
         "schedule": "Mondays and Thursdays, 3:30 PM - 5:00 PM",
         "max_participants": 20,
         "participants": ["william@mergington.edu", "amelia@mergington.edu"]
+    },
+    "Book Club": {
+        "description": "Read and discuss classic and contemporary literature",
+        "schedule": "Fridays, 3:00 PM - 4:30 PM",
+        "max_participants": 15,
+        "participants": []
     }
 }
 
