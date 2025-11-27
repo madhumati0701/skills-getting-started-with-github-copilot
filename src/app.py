@@ -19,6 +19,20 @@ current_dir = Path(__file__).parent
 app.mount("/static", StaticFiles(directory=os.path.join(Path(__file__).parent,
           "static")), name="static")
 
+# Activity categories
+activity_categories = {
+    "Chess Club": "Sports",
+    "Programming Class": "STEM",
+    "Gym Class": "Sports",
+    "Soccer Team": "Sports",
+    "Swimming Club": "Sports",
+    "Art Club": "Arts",
+    "Drama Club": "Arts",
+    "Debate Team": "Academic",
+    "Science Olympiad": "STEM",
+    "Book Club": "Arts"
+}
+
 # In-memory activity database
 activities = {
     "Chess Club": {
@@ -94,6 +108,15 @@ def get_activities():
     return activities
 
 
+def get_student_activities(email: str):
+    """Get all activities a student is enrolled in"""
+    enrolled_activities = []
+    for activity_name, activity_data in activities.items():
+        if email in activity_data["participants"]:
+            enrolled_activities.append(activity_name)
+    return enrolled_activities
+
+
 @app.post("/activities/{activity_name}/signup")
 def signup_for_activity(activity_name: str, email: str):
     """Sign up a student for an activity"""
@@ -104,9 +127,27 @@ def signup_for_activity(activity_name: str, email: str):
     # Get the specific activity
     activity = activities[activity_name]
 
-       # Validate student is not already signed up
+    # Validate student is not already signed up
     if email in activity["participants"]:
         raise HTTPException(status_code=400, detail="Student already signed up for this activity")
+    
+    # Check if student is enrolled in 3 or more activities
+    enrolled_activities = get_student_activities(email)
+    if len(enrolled_activities) >= 3:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Student is already enrolled in 3 activities. Cannot enroll in more than 3 programs."
+        )
+    
+    # Check if student is already enrolled in an activity of the same category
+    new_category = activity_categories[activity_name]
+    for enrolled_activity in enrolled_activities:
+        enrolled_category = activity_categories[enrolled_activity]
+        if enrolled_category == new_category:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Student is already enrolled in '{enrolled_activity}' which is in the same category ({new_category}). Cannot enroll in multiple programs of the same type."
+            )
     
     # Add student
     activity["participants"].append(email)
@@ -130,3 +171,16 @@ def remove_from_activity(activity_name: str, email: str):
     # Remove student
     activity["participants"].remove(email)
     return {"message": f"Removed {email} from {activity_name}"}
+
+    @app.middleware("http")
+    async def add_cache_control_headers(request, call_next):
+        """Add cache control headers to prevent stale content"""
+        response = await call_next(request)
+        
+        # Disable caching for API endpoints and static files
+        if request.url.path.startswith("/static/") or request.url.path.startswith("/activities"):
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+        
+        return response
